@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AIDP Agent Compute Router Demo</title>
+  <style>
+    body { font-family: Arial; padding: 40px; }
+    input, button { padding: 10px; width: 100%; margin-top: 10px; }
+    pre { background: #111; color: #0f0; padding: 15px; }
+  </style>
+</head>
+<body>
+
+<h2>AIDP Agent Compute Router</h2>
+
+<input id="prompt" placeholder="Enter image prompt..." />
+<button onclick="submitJob()">Run on AIDP GPU</button>
+
+<h3>Job Output</h3>
+<pre id="output">Waiting...</pre>
+
+<script>
+async function submitJob() {
+  const prompt = document.getElementById("prompt").value;
+
+  const res = await fetch("http://localhost:8000/jobs", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      type: "TEXT_TO_IMAGE",
+      prompt: prompt,
+      steps: 30
+    })
+  });
+
+  const job = await res.json();
+  pollJob(job.job_id);
+}
+
+async function pollJob(jobId) {
+  const interval = setInterval(async () => {
+    const res = await fetch(`http://localhost:8000/jobs/${jobId}`);
+    const job = await res.json();
+
+    document.getElementById("output").textContent =
+      JSON.stringify(job, null, 2);
+
+    if (job.status === "COMPLETED") {
+      clearInterval(interval);
+    }
+  }, 2000);
+}
+</script>
+
+</body>
+</html>
