@@ -1,54 +1,475 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AIDP Agent Compute Router Demo</title>
   <style>
-    body { font-family: Arial; padding: 40px; }
-    input, button { padding: 10px; width: 100%; margin-top: 10px; }
-    pre { background: #111; color: #0f0; padding: 15px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #00d4ff;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      color: #00d4ff;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    }
+
+    .tagline {
+      font-size: 1.1em;
+      color: #a0a0a0;
+      font-style: italic;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid #00d4ff;
+      border-radius: 8px;
+      padding: 25px;
+      backdrop-filter: blur(10px);
+    }
+
+    .card h2 {
+      color: #00d4ff;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #a0a0a0;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid #00d4ff;
+      color: #e0e0e0;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1em;
+    }
+
+    input[type="text"]::placeholder,
+    textarea::placeholder {
+      color: #606060;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #00ffff;
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+    }
+
+    .slider-value {
+      background: rgba(0, 212, 255, 0.2);
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: #00d4ff;
+      font-weight: bold;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+      border: none;
+      color: #000;
+      font-weight: bold;
+      font-size: 1.1em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 212, 255, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 4px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .status.pending {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+
+    .status.running {
+      background: rgba(0, 212, 255, 0.2);
+      color: #00d4ff;
+    }
+
+    .status.completed {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4caf50;
+    }
+
+    .status.failed {
+      background: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+    }
+
+    .output-section {
+      margin-top: 20px;
+    }
+
+    .output-image {
+      width: 100%;
+      border-radius: 4px;
+      border: 2px solid #00d4ff;
+      margin-bottom: 15px;
+    }
+
+    .json-output {
+      background: #0a0a0a;
+      border: 1px solid #333;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #00d4ff;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .spinner {
+      border: 3px solid rgba(0, 212, 255, 0.2);
+      border-top: 3px solid #00d4ff;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 0.8s linear infinite;
+      margin: 10px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .metric {
+      background: rgba(0, 212, 255, 0.1);
+      border-left: 3px solid #00d4ff;
+      padding: 12px;
+      border-radius: 4px;
+    }
+
+    .metric-label {
+      color: #a0a0a0;
+      font-size: 0.9em;
+      margin-bottom: 5px;
+    }
+
+    .metric-value {
+      color: #00d4ff;
+      font-size: 1.3em;
+      font-weight: bold;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid rgba(0, 212, 255, 0.3);
+      color: #606060;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 1.8em;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
 
-<h2>AIDP Agent Compute Router</h2>
+<div class="container">
+  <header>
+    <h1>🚀 AIDP Agent Compute Router</h1>
+    <p class="tagline">Run GPU workloads on decentralized AIDP with one API call</p>
+  </header>
 
-<input id="prompt" placeholder="Enter image prompt..." />
-<button onclick="submitJob()">Run on AIDP GPU</button>
+  <div class="main-grid">
+    <!-- Input Section -->
+    <div class="card">
+      <h2>Submit Job</h2>
+      
+      <div class="form-group">
+        <label for="prompt">Image Prompt</label>
+        <textarea 
+          id="prompt" 
+          placeholder="Describe the image you want to generate... e.g., 'A cyberpunk city at sunset with neon lights'">
+        </textarea>
+      </div>
 
-<h3>Job Output</h3>
-<pre id="output">Waiting...</pre>
+      <div class="form-group">
+        <label for="steps">Inference Steps</label>
+        <div class="slider-container">
+          <input 
+            type="range" 
+            id="steps" 
+            min="10" 
+            max="50" 
+            value="30"
+            oninput="document.getElementById('stepsValue').textContent = this.value"
+          >
+          <div class="slider-value" id="stepsValue">30</div>
+        </div>
+        <small style="color: #606060;">More steps = better quality (slower)</small>
+      </div>
+
+      <button onclick="submitJob()" id="submitBtn">
+        Generate Image on AIDP GPU
+      </button>
+
+      <div id="status" style="display: none;" class="status pending">
+        Initializing...
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="card">
+      <h2>Results</h2>
+
+      <div id="resultContainer" style="display: none;">
+        <div id="outputImage" class="output-section">
+          <img id="resultImg" class="output-image" alt="Generated image">
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">Job ID</div>
+            <div class="metric-value" id="jobId" style="font-size: 0.95em; word-break: break-all;">-</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Status</div>
+            <div class="metric-value" id="jobStatus">-</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Cost (AIDP)</div>
+            <div class="metric-value" id="jobCost">-</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Execution Time</div>
+            <div class="metric-value" id="execTime">-</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <label>Full Response</label>
+          <div class="json-output" id="fullResponse"></div>
+        </div>
+      </div>
+
+      <div id="noResults" style="padding: 40px 0; text-align: center; color: #606060;">
+        <p>Submit a prompt to see results here</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Powered by AIDP Decentralized GPU Network • Built with FastAPI & Stable Diffusion</p>
+    <p style="margin-top: 10px; font-size: 0.85em;">API: <span id="apiUrl">http://localhost:8000</span></p>
+  </footer>
+</div>
 
 <script>
-async function submitJob() {
-  const prompt = document.getElementById("prompt").value;
+  const API_BASE_URL = 'http://localhost:8000';
+  let currentJobId = null;
+  let pollInterval = null;
+  let startTime = null;
 
-  const res = await fetch("http://localhost:8000/jobs", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      type: "TEXT_TO_IMAGE",
-      prompt: prompt,
-      steps: 30
-    })
-  });
+  async function submitJob() {
+    const prompt = document.getElementById('prompt').value.trim();
+    const steps = parseInt(document.getElementById('steps').value);
 
-  const job = await res.json();
-  pollJob(job.job_id);
-}
-
-async function pollJob(jobId) {
-  const interval = setInterval(async () => {
-    const res = await fetch(`http://localhost:8000/jobs/${jobId}`);
-    const job = await res.json();
-
-    document.getElementById("output").textContent =
-      JSON.stringify(job, null, 2);
-
-    if (job.status === "COMPLETED") {
-      clearInterval(interval);
+    if (!prompt) {
+      alert('Please enter a prompt');
+      return;
     }
-  }, 2000);
-}
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'TEXT_TO_IMAGE',
+          prompt: prompt,
+          steps: steps
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const job = await response.json();
+      currentJobId = job.job_id;
+      startTime = new Date();
+
+      showStatus('pending', `Job submitted: ${currentJobId}`);
+      document.getElementById('noResults').style.display = 'none';
+      document.getElementById('resultContainer').style.display = 'block';
+      document.getElementById('jobId').textContent = currentJobId;
+
+      // Start polling
+      pollJob();
+      pollInterval = setInterval(pollJob, 2000);
+    } catch (error) {
+      alert(`Error: ${error.message}`);
+      showStatus('failed', `Error: ${error.message}`);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+
+  async function pollJob() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/jobs/${currentJobId}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const job = await response.json();
+
+      // Update metrics
+      document.getElementById('jobStatus').textContent = job.status;
+      document.getElementById('jobCost').textContent = job.compute_cost ? `$${job.compute_cost.toFixed(2)}` : '-';
+      document.getElementById('fullResponse').textContent = JSON.stringify(job, null, 2);
+
+      // Calculate execution time
+      if (startTime) {
+        const elapsed = Math.floor((new Date() - startTime) / 1000);
+        document.getElementById('execTime').textContent = `${elapsed}s`;
+      }
+
+      // Update status
+      if (job.status === 'PENDING') {
+        showStatus('pending', '⏳ Waiting for GPU availability...');
+      } else if (job.status === 'RUNNING') {
+        showStatus('running', '🔄 Running inference on AIDP GPU...');
+      } else if (job.status === 'COMPLETED') {
+        showStatus('completed', '✅ Completed!');
+        
+        // Show image
+        if (job.output_url) {
+          const img = document.getElementById('resultImg');
+          img.src = job.output_url;
+          document.getElementById('outputImage').style.display = 'block';
+        }
+
+        clearInterval(pollInterval);
+      } else if (job.status === 'FAILED') {
+        showStatus('failed', `❌ Failed: ${job.error || 'Unknown error'}`);
+        clearInterval(pollInterval);
+      }
+    } catch (error) {
+      console.error('Poll error:', error);
+    }
+  }
+
+  function showStatus(type, message) {
+    const statusEl = document.getElementById('status');
+    statusEl.style.display = 'block';
+    statusEl.className = `status ${type}`;
+    statusEl.textContent = message;
+  }
+
+  // Set API URL
+  document.getElementById('apiUrl').textContent = API_BASE_URL;
 </script>
 
 </body>

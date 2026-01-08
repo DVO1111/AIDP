@@ -49,15 +49,3 @@ def gpu_job_callback(job_id: str, payload: dict = Body(...)):
     update_job(job, payload)
 
     return {"status": "acknowledged"}
-
-@router.post("/{job_id}/callback")
-def gpu_job_callback(job_id: str, payload: dict):
-    job = get_job(job_id)
-
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    from api.services.job_manager import complete_job
-    complete_job(job, payload)
-
-    return {"status": "acknowledged"}
