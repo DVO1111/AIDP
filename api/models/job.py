@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
@@ -18,7 +18,7 @@ class JobType(str, Enum):
 class JobCreateRequest(BaseModel):
     type: JobType
     prompt: str
-    steps: int = 30
+    steps: int = Field(default=30, ge=10, le=50)  # Validation: 10-50 steps
 
 
 class JobResponse(BaseModel):
@@ -26,4 +26,5 @@ class JobResponse(BaseModel):
     status: JobStatus
     output_url: Optional[str] = None
     compute_cost: Optional[float] = None
+    error: Optional[str] = None
     created_at: datetime

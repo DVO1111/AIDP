@@ -21,6 +21,7 @@ def create_job(payload: JobCreateRequest) -> dict:
         "created_at": datetime.utcnow(),
         "output_url": None,
         "compute_cost": None,
+        "error": None,
     }
 
     JOBS[job_id] = job

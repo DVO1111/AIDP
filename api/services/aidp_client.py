@@ -5,9 +5,8 @@ from api.models.job import JobStatus
 def submit_gpu_job(job: dict):
     """
     Submits job to AIDP GPU marketplace.
+    Job status remains PENDING until worker actually starts execution.
     """
-
-    job["status"] = JobStatus.RUNNING
 
     env = os.environ.copy()
     env["JOB_ID"] = job["id"]
