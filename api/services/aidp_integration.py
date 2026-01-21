@@ -26,8 +26,8 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 try:
-    from solders.keypair import Keypair
-    from solders.pubkey import Pubkey
+    from solders.keypair import Keypair  # type: ignore[import-not-found]
+    from solders.pubkey import Pubkey  # type: ignore[import-not-found]
     SOLANA_AVAILABLE = True
 except ImportError:
     SOLANA_AVAILABLE = False
