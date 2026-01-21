@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from api.models.job import JobStatus, JobCreateRequest
 
@@ -22,19 +22,24 @@ def create_job(payload: JobCreateRequest) -> dict:
         "output_url": None,
         "compute_cost": None,
         "error": None,
+        # AIDP Network fields
+        "aidp_data": None,
+        "proof_of_execution": None,
     }
 
     JOBS[job_id] = job
     return job
 
 
-def get_job(job_id: str) -> dict:
+def get_job(job_id: str) -> Optional[dict]:
     return JOBS.get(job_id)
 
 
 def update_job(job: dict, data: dict):
     """Update job status from GPU worker callback."""
-    job["status"] = JobStatus(data["status"])
+    # Handle both uppercase and lowercase status values
+    status_value = data["status"].upper() if isinstance(data["status"], str) else data["status"]
+    job["status"] = JobStatus(status_value)
     job["completed_at"] = datetime.utcnow()
     job["output_url"] = data.get("output_url")
     job["compute_cost"] = data.get("compute_cost")

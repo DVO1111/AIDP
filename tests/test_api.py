@@ -127,9 +127,10 @@ class TestJobStatus:
         callback_response = client.post(
             f"/jobs/{job_id}/callback",
             json={
-                "status": "COMPLETED",
+                "status": "completed",
                 "output_url": "outputs/test.png",
-                "compute_cost": 0.15
+                "compute_cost": 0.15,
+                "execution_time": 5.5
             }
         )
         assert callback_response.status_code == 200
@@ -163,9 +164,10 @@ class TestJobCallback:
         callback_response = client.post(
             f"/jobs/{job_id}/callback",
             json={
-                "status": "COMPLETED",
+                "status": "completed",
                 "output_url": "outputs/abc123.png",
-                "compute_cost": 0.20
+                "compute_cost": 0.20,
+                "execution_time": 4.2
             }
         )
         assert callback_response.status_code == 200
@@ -195,7 +197,7 @@ class TestJobCallback:
         callback_response = client.post(
             f"/jobs/{job_id}/callback",
             json={
-                "status": "FAILED",
+                "status": "failed",
                 "error": "Out of memory on GPU"
             }
         )
@@ -212,11 +214,109 @@ class TestJobCallback:
         response = client.post(
             "/jobs/nonexistent/callback",
             json={
-                "status": "COMPLETED",
+                "status": "completed",
                 "output_url": "outputs/test.png"
             }
         )
         assert response.status_code == 404
+
+
+class TestAIDPIntegration:
+    """Test AIDP network integration"""
+
+    def test_job_has_aidp_info(self):
+        """Test that submitted jobs have AIDP routing info"""
+        response = client.post(
+            "/jobs",
+            json={
+                "type": "TEXT_TO_IMAGE",
+                "prompt": "A cat astronaut",
+                "steps": 25
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check AIDP info is present
+        assert "aidp" in data
+        assert data["aidp"] is not None
+        assert "aidp_job_id" in data["aidp"]
+        assert data["aidp"]["aidp_job_id"].startswith("aidp_")
+        assert data["aidp"]["network"] == "mainnet"
+        assert data["aidp"]["status"] == "routed"
+        
+    def test_aidp_node_assignment(self):
+        """Test that AIDP assigns a GPU node"""
+        response = client.post(
+            "/jobs",
+            json={
+                "type": "TEXT_TO_IMAGE",
+                "prompt": "Test",
+                "steps": 20
+            }
+        )
+        data = response.json()
+        
+        # Check node assignment
+        aidp = data["aidp"]
+        assert "assigned_node" in aidp
+        node = aidp["assigned_node"]
+        assert "node_id" in node
+        assert "wallet" in node
+        assert "gpu" in node
+        assert "region" in node
+        
+    def test_aidp_cost_calculation(self):
+        """Test that AIDP calculates cost"""
+        response = client.post(
+            "/jobs",
+            json={
+                "type": "TEXT_TO_IMAGE",
+                "prompt": "Test",
+                "steps": 30
+            }
+        )
+        data = response.json()
+        
+        # Cost should be positive
+        assert data["aidp"]["cost_aidp"] > 0
+        
+    def test_proof_generated_on_completion(self):
+        """Test that proof of execution is generated on job completion"""
+        # Create job
+        create_response = client.post(
+            "/jobs",
+            json={
+                "type": "TEXT_TO_IMAGE",
+                "prompt": "Test",
+                "steps": 30
+            }
+        )
+        job_id = create_response.json()["job_id"]
+        
+        # Complete with execution_time
+        callback_response = client.post(
+            f"/jobs/{job_id}/callback",
+            json={
+                "status": "completed",
+                "output_url": "outputs/proof_test.png",
+                "compute_cost": 0.15,
+                "execution_time": 8.5
+            }
+        )
+        assert callback_response.status_code == 200
+        assert callback_response.json().get("proof_generated") == True
+        
+        # Get job and check proof
+        get_response = client.get(f"/jobs/{job_id}")
+        data = get_response.json()
+        
+        assert "proof_of_execution" in data
+        proof = data["proof_of_execution"]
+        assert proof is not None
+        assert "proof_signature" in proof
+        assert "execution_hash" in proof
+        assert proof["verified"] == True
 
 
 class TestAPIDocumentation:
