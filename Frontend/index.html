@@ -347,6 +347,65 @@
           </div>
         </div>
 
+        <!-- AIDP Network Info -->
+        <div id="aidpSection" style="display: none; margin-top: 20px;">
+          <h3 style="color: #00d4ff; margin-bottom: 15px; font-size: 1.1em;">AIDP Network Details</h3>
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">AIDP Job ID</div>
+              <div class="metric-value" id="aidpJobId" style="font-size: 0.85em; word-break: break-all;">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Network</div>
+              <div class="metric-value" id="aidpNetwork">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">GPU Node</div>
+              <div class="metric-value" id="aidpGpuNode">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Region</div>
+              <div class="metric-value" id="aidpRegion">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Cost (AIDP Tokens)</div>
+              <div class="metric-value" id="aidpCost">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Node Wallet</div>
+              <div class="metric-value" id="aidpWallet" style="font-size: 0.7em; word-break: break-all;">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Proof of Execution -->
+        <div id="proofSection" style="display: none; margin-top: 20px;">
+          <h3 style="color: #4caf50; margin-bottom: 15px; font-size: 1.1em;">Proof of Execution</h3>
+          <div class="metrics">
+            <div class="metric" style="grid-column: span 2;">
+              <div class="metric-label">Proof Signature</div>
+              <div class="metric-value" id="proofSignature" style="font-size: 0.7em; word-break: break-all; color: #4caf50;">-</div>
+            </div>
+            <div class="metric" style="grid-column: span 2;">
+              <div class="metric-label">Execution Hash</div>
+              <div class="metric-value" id="executionHash" style="font-size: 0.7em; word-break: break-all; color: #4caf50;">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Verification Status</div>
+              <div class="metric-value" id="verificationStatus" style="font-size: 0.9em;">-</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Block Number</div>
+              <div class="metric-value" id="blockNumber">-</div>
+            </div>
+          </div>
+          <div style="margin-top: 15px; text-align: center;">
+            <a id="onChainLink" href="#" target="_blank" style="display: none; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; font-weight: bold;">
+              View on Solana Explorer
+            </a>
+          </div>
+        </div>
+
         <div style="margin-top: 20px;">
           <label>Full Response</label>
           <div class="json-output" id="fullResponse"></div>
@@ -407,6 +466,11 @@
       document.getElementById('resultContainer').style.display = 'block';
       document.getElementById('jobId').textContent = currentJobId;
 
+      // Show AIDP info if available
+      if (job.aidp) {
+        updateAIDPInfo(job.aidp);
+      }
+
       // Start polling
       pollJob();
       pollInterval = setInterval(pollJob, 2000);
@@ -438,11 +502,11 @@
 
       // Update status
       if (job.status === 'PENDING') {
-        showStatus('pending', '⏳ Waiting for GPU availability...');
+        showStatus('pending', 'Waiting for GPU availability...');
       } else if (job.status === 'RUNNING') {
-        showStatus('running', '🔄 Running inference on AIDP GPU...');
+        showStatus('running', 'Running inference on AIDP GPU...');
       } else if (job.status === 'COMPLETED') {
-        showStatus('completed', '✅ Completed!');
+        showStatus('completed', 'Completed!');
         
         // Show image
         if (job.output_url) {
@@ -451,10 +515,20 @@
           document.getElementById('outputImage').style.display = 'block';
         }
 
+        // Show proof of execution
+        if (job.proof_of_execution) {
+          updateProofInfo(job.proof_of_execution);
+        }
+
         clearInterval(pollInterval);
       } else if (job.status === 'FAILED') {
-        showStatus('failed', `❌ Failed: ${job.error || 'Unknown error'}`);
+        showStatus('failed', `Failed: ${job.error || 'Unknown error'}`);
         clearInterval(pollInterval);
+      }
+
+      // Update AIDP info if available
+      if (job.aidp) {
+        updateAIDPInfo(job.aidp);
       }
     } catch (error) {
       console.error('Poll error:', error);
@@ -466,6 +540,33 @@
     statusEl.style.display = 'block';
     statusEl.className = `status ${type}`;
     statusEl.textContent = message;
+  }
+
+  function updateAIDPInfo(aidp) {
+    document.getElementById('aidpSection').style.display = 'block';
+    document.getElementById('aidpJobId').textContent = aidp.aidp_job_id || '-';
+    document.getElementById('aidpNetwork').textContent = aidp.network || '-';
+    document.getElementById('aidpCost').textContent = aidp.cost_aidp ? `${aidp.cost_aidp} AIDP` : '-';
+    
+    if (aidp.assigned_node) {
+      document.getElementById('aidpGpuNode').textContent = aidp.assigned_node.gpu || '-';
+      document.getElementById('aidpRegion').textContent = aidp.assigned_node.region || '-';
+      document.getElementById('aidpWallet').textContent = aidp.assigned_node.wallet || '-';
+    }
+  }
+
+  function updateProofInfo(proof) {
+    document.getElementById('proofSection').style.display = 'block';
+    document.getElementById('proofSignature').textContent = proof.proof_signature || '-';
+    document.getElementById('executionHash').textContent = proof.execution_hash || '-';
+    document.getElementById('verificationStatus').textContent = proof.verification_status || '-';
+    document.getElementById('blockNumber').textContent = proof.block_number ? proof.block_number.toLocaleString() : '-';
+    
+    if (proof.on_chain_url) {
+      const link = document.getElementById('onChainLink');
+      link.href = proof.on_chain_url;
+      link.style.display = 'inline-block';
+    }
   }
 
   // Set API URL

@@ -26,6 +26,7 @@ def build_aidp_info(job: dict) -> AIDPInfo | None:
         assigned_node=AIDPNodeInfo(**aidp_data["assigned_node"]),
         routed_at=aidp_data["routed_at"],
         cost_aidp=aidp_data["cost_aidp"],
+        api_mode=aidp_data.get("api_mode", "simulation"),
     )
 
 
@@ -37,12 +38,19 @@ def build_proof(job: dict) -> AIDPProof | None:
     
     return AIDPProof(
         aidp_job_id=proof_data["aidp_job_id"],
+        node_id=proof_data.get("node_id"),
+        node_wallet=proof_data.get("node_wallet"),
+        node_gpu=proof_data.get("node_gpu"),
+        node_region=proof_data.get("node_region"),
         proof_signature=proof_data["proof_signature"],
         execution_hash=proof_data["execution_hash"],
         verified=proof_data["verified"],
+        verification_status=proof_data.get("verification_status"),
+        verification_mode=proof_data.get("verification_mode"),
         on_chain_url=proof_data.get("on_chain_url"),
         tx_hash=proof_data.get("tx_hash"),
         block_number=proof_data.get("block_number"),
+        network=proof_data.get("network"),
     )
 
 

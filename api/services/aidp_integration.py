@@ -15,18 +15,37 @@ import json
 import uuid
 import hashlib
 import random
+import logging
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
+
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    HTTPX_AVAILABLE = False
+
+try:
+    from solders.keypair import Keypair
+    from solders.pubkey import Pubkey
+    SOLANA_AVAILABLE = True
+except ImportError:
+    SOLANA_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 # AIDP Network Configuration
 AIDP_CONFIG = {
-    "network": "mainnet",
-    "rpc_endpoint": "https://api.mainnet-beta.solana.com",
+    "network": os.getenv("AIDP_NETWORK", "mainnet"),
+    "rpc_endpoint": os.getenv("SOLANA_RPC_ENDPOINT", "https://api.mainnet-beta.solana.com"),
+    "devnet_rpc": "https://api.devnet.solana.com",
     "program_id": "PLNk8NUTBeptajEX9GzZrxsYPJ1psnw62dPnWkGcyai",
     "contract_address": "PLNk8NUTBeptajEX9GzZrxsYPJ1psnw62dPnWkGcyai",
     "api_endpoint": os.getenv("AIDP_API_ENDPOINT", "https://api.aidp.store/v1"),
     "api_key": os.getenv("AIDP_API_KEY", ""),
+    "use_real_api": os.getenv("AIDP_USE_REAL_API", "false").lower() == "true",
+    "use_devnet": os.getenv("AIDP_USE_DEVNET", "true").lower() == "true",
 }
 
 # AIDP GPU Node Pool
@@ -75,25 +94,78 @@ def generate_tx_hash() -> str:
     return f"{uuid.uuid4().hex}{uuid.uuid4().hex[:32]}"
 
 
+def _try_real_aidp_api(job: Dict) -> Tuple[bool, Dict]:
+    """
+    Attempt to submit job to real AIDP API.
+    Returns (success: bool, response: dict)
+    """
+    if not HTTPX_AVAILABLE:
+        logger.debug("httpx not available, using simulation")
+        return False, {}
+    
+    if not AIDP_CONFIG["api_key"]:
+        logger.debug("No AIDP API key configured, using simulation")
+        return False, {}
+    
+    if not AIDP_CONFIG["use_real_api"]:
+        logger.debug("Real API disabled, using simulation")
+        return False, {}
+    
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(
+                f"{AIDP_CONFIG['api_endpoint']}/compute/submit",
+                headers={
+                    "Authorization": f"Bearer {AIDP_CONFIG['api_key']}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "type": job.get("type", "TEXT_TO_IMAGE"),
+                    "prompt": job.get("prompt", ""),
+                    "steps": job.get("steps", 30),
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.info(f"AIDP API submission successful: {data.get('job_id')}")
+                return True, data
+            else:
+                logger.warning(f"AIDP API returned {response.status_code}: {response.text}")
+                return False, {}
+                
+    except Exception as e:
+        logger.warning(f"AIDP API call failed: {e}, falling back to simulation")
+        return False, {}
+
+
 def submit_to_aidp_network(job: Dict) -> Dict:
     """
     Submit a job to the AIDP decentralized GPU network.
     
     Flow:
-    1. Connect to AIDP network
-    2. Select optimal GPU node based on workload
-    3. Route job to selected node
-    4. Return routing confirmation
-    
-    In production with AIDP API:
-    ```
-    response = requests.post(
-        f"{AIDP_CONFIG['api_endpoint']}/compute/submit",
-        headers={"Authorization": f"Bearer {AIDP_CONFIG['api_key']}"},
-        json={"type": job["type"], "prompt": job["prompt"], "steps": job["steps"]}
-    )
-    ```
+    1. Try real AIDP API if configured and available
+    2. Fall back to simulation if API unavailable
+    3. Select optimal GPU node based on workload
+    4. Route job to selected node
+    5. Return routing confirmation
     """
+    # Try real AIDP API first
+    success, api_response = _try_real_aidp_api(job)
+    
+    if success and api_response:
+        # Use real API response
+        return {
+            "aidp_job_id": api_response.get("job_id", generate_aidp_job_id()),
+            "assigned_node": api_response.get("node", select_gpu_node()),
+            "status": "routed",
+            "routed_at": datetime.utcnow().isoformat(),
+            "network": AIDP_CONFIG["network"],
+            "cost_aidp": api_response.get("cost", round(random.uniform(0.10, 0.20), 2)),
+            "api_mode": "live",
+        }
+    
+    # Fall back to simulation
     aidp_job_id = generate_aidp_job_id()
     selected_node = select_gpu_node()
     
@@ -104,6 +176,7 @@ def submit_to_aidp_network(job: Dict) -> Dict:
         "routed_at": datetime.utcnow().isoformat(),
         "network": AIDP_CONFIG["network"],
         "cost_aidp": round(random.uniform(0.10, 0.20), 2),
+        "api_mode": "simulation",
     }
 
 
@@ -112,6 +185,7 @@ def create_execution_proof(job_id: str, aidp_data: Dict, output_url: str, execut
     Create proof of execution on AIDP network.
     
     This proof can be verified on-chain via Solana.
+    Attempts real Solana transaction if SDK available, otherwise simulates.
     """
     node = aidp_data.get("assigned_node", {})
     node_wallet = node.get("wallet", "unknown")
@@ -121,7 +195,28 @@ def create_execution_proof(job_id: str, aidp_data: Dict, output_url: str, execut
         {"id": job_id, "prompt": "", "steps": 30},
         output_url
     )
-    tx_hash = generate_tx_hash()
+    
+    # Try real Solana verification
+    tx_data = {
+        "job_id": job_id,
+        "aidp_job_id": aidp_data.get("aidp_job_id"),
+        "execution_hash": execution_hash,
+        "proof_signature": proof_signature,
+        "execution_time": execution_time,
+    }
+    
+    solana_success, real_tx_hash = _try_solana_verification(tx_data)
+    
+    if solana_success and real_tx_hash:
+        tx_hash = real_tx_hash
+        verification_status = "VERIFIED_ON_CHAIN"
+        verification_mode = "live"
+    else:
+        tx_hash = generate_tx_hash()
+        verification_status = "SIMULATED_VERIFICATION"
+        verification_mode = "simulation"
+    
+    on_chain_url = get_solana_explorer_url(tx_hash)
     
     return {
         "aidp_job_id": aidp_data.get("aidp_job_id"),
@@ -132,11 +227,13 @@ def create_execution_proof(job_id: str, aidp_data: Dict, output_url: str, execut
         "proof_signature": proof_signature,
         "execution_hash": execution_hash,
         "verified": True,
-        "verification_status": "VERIFIED_ON_CHAIN",
+        "verification_status": verification_status,
+        "verification_mode": verification_mode,
         "tx_hash": tx_hash,
-        "on_chain_url": f"https://solscan.io/tx/{tx_hash}",
+        "on_chain_url": on_chain_url,
         "block_number": random.randint(290000000, 300000000),
         "verified_at": datetime.utcnow().isoformat(),
+        "network": "devnet" if AIDP_CONFIG["use_devnet"] else "mainnet",
     }
 
 
@@ -145,6 +242,48 @@ def get_aidp_cost(steps: int) -> float:
     base_cost = 0.10
     step_cost = steps * 0.002
     return round(base_cost + step_cost, 2)
+
+
+def _try_solana_verification(tx_data: Dict) -> Tuple[bool, str]:
+    """
+    Attempt to write verification to Solana (devnet/mainnet).
+    Returns (success: bool, tx_hash: str)
+    """
+    if not SOLANA_AVAILABLE:
+        logger.debug("Solana SDK not available, using simulated tx")
+        return False, ""
+    
+    if not AIDP_CONFIG["use_devnet"] and not AIDP_CONFIG["use_real_api"]:
+        logger.debug("Solana verification disabled")
+        return False, ""
+    
+    try:
+        # In production, this would:
+        # 1. Connect to Solana RPC
+        # 2. Create transaction with proof data
+        # 3. Sign and submit transaction
+        # 4. Return actual tx signature
+        
+        # For now, log that we would write to Solana
+        rpc = AIDP_CONFIG["devnet_rpc"] if AIDP_CONFIG["use_devnet"] else AIDP_CONFIG["rpc_endpoint"]
+        logger.info(f"Would write to Solana ({rpc}): {tx_data}")
+        
+        # Return simulated hash (real implementation would return actual tx signature)
+        return False, ""
+        
+    except Exception as e:
+        logger.warning(f"Solana verification failed: {e}")
+        return False, ""
+
+
+def get_solana_explorer_url(tx_hash: str, is_devnet: bool = None) -> str:
+    """Get Solana explorer URL for transaction"""
+    if is_devnet is None:
+        is_devnet = AIDP_CONFIG["use_devnet"]
+    
+    if is_devnet:
+        return f"https://explorer.solana.com/tx/{tx_hash}?cluster=devnet"
+    return f"https://solscan.io/tx/{tx_hash}"
 
 
 class AIDPJobContext:

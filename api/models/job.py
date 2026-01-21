@@ -33,13 +33,16 @@ class AIDPProof(BaseModel):
     node_id: Optional[str] = None
     node_wallet: Optional[str] = None
     node_gpu: Optional[str] = None
+    node_region: Optional[str] = None
     proof_signature: Optional[str] = None
     execution_hash: Optional[str] = None
     verified: bool = False
     verification_status: Optional[str] = None
+    verification_mode: Optional[str] = None  # "live" or "simulation"
     tx_hash: Optional[str] = None
     on_chain_url: Optional[str] = None
     block_number: Optional[int] = None
+    network: Optional[str] = None  # "devnet" or "mainnet"
 
 
 class AIDPInfo(BaseModel):
@@ -50,6 +53,7 @@ class AIDPInfo(BaseModel):
     assigned_node: Optional[AIDPNodeInfo] = None
     routed_at: Optional[str] = None
     cost_aidp: Optional[float] = None
+    api_mode: Optional[str] = None  # "live" or "simulation"
 
 
 class JobCreateRequest(BaseModel):
